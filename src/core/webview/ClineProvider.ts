@@ -59,7 +59,7 @@ export const GlobalFileNames = {
 	apiConversationHistory: "api_conversation_history.json",
 	uiMessages: "ui_messages.json",
 	openRouterModels: "openrouter_models.json",
-	mcpSettings: "rich_cline_mcp_settings.json",
+	mcpSettings: "cline_mcp_settings.json",
 	clineRules: ".clinerules",
 }
 
