@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { useEvent } from "react-use"
 import { DEFAULT_AUTO_APPROVAL_SETTINGS } from "../../../src/shared/AutoApprovalSettings"
 import { ExtensionMessage, ExtensionState, DEFAULT_PLATFORM } from "../../../src/shared/ExtensionMessage"
-import { ApiConfiguration, ModelInfo, openRouterDefaultModelId, openRouterDefaultModelInfo } from "../../../src/shared/api"
+import { ApiConfiguration, ModelInfo, anthropicModels as anthropicModelsData } from "../../../src/shared/api"
 import { findLastIndex } from "../../../src/shared/array"
 import { McpMarketplaceCatalog, McpServer } from "../../../src/shared/mcp"
 import { convertTextMateToHljs } from "../utils/textMateToHljs"
@@ -15,8 +15,7 @@ interface ExtensionStateContextType extends ExtensionState {
 	didHydrateState: boolean
 	showWelcome: boolean
 	theme: any
-	openRouterModels: Record<string, ModelInfo>
-	openAiModels: string[]
+	anthropicModels: Record<string, ModelInfo>
 	mcpServers: McpServer[]
 	mcpMarketplaceCatalog: McpMarketplaceCatalog
 	filePaths: string[]
@@ -47,39 +46,20 @@ export const ExtensionStateContextProvider: React.FC<{
 	const [showWelcome, setShowWelcome] = useState(false)
 	const [theme, setTheme] = useState<any>(undefined)
 	const [filePaths, setFilePaths] = useState<string[]>([])
-	const [openRouterModels, setOpenRouterModels] = useState<Record<string, ModelInfo>>({
-		[openRouterDefaultModelId]: openRouterDefaultModelInfo,
-	})
-
-	const [openAiModels, setOpenAiModels] = useState<string[]>([])
+	const [anthropicModels, setAnthropicModels] = useState<Record<string, ModelInfo>>(anthropicModelsData)
 	const [mcpServers, setMcpServers] = useState<McpServer[]>([])
 	const [mcpMarketplaceCatalog, setMcpMarketplaceCatalog] = useState<McpMarketplaceCatalog>({ items: [] })
 	const handleMessage = useCallback((event: MessageEvent) => {
 		const message: ExtensionMessage = event.data
+		console.log("ExtensionStateContext handleMessage - Received message:", message.type)
 		switch (message.type) {
 			case "state": {
+				console.log("ExtensionStateContext handleMessage - Received state update")
 				setState(message.state!)
 				const config = message.state?.apiConfiguration
-				const hasKey = config
-					? [
-							config.apiKey,
-							config.openRouterApiKey,
-							config.awsRegion,
-							config.vertexProjectId,
-							config.openAiApiKey,
-							config.ollamaModelId,
-							config.lmStudioModelId,
-							config.liteLlmApiKey,
-							config.geminiApiKey,
-							config.openAiNativeApiKey,
-							config.deepSeekApiKey,
-							config.requestyApiKey,
-							config.togetherApiKey,
-							config.qwenApiKey,
-							config.mistralApiKey,
-							config.vsCodeLmModelSelector,
-						].some((key) => key !== undefined)
-					: false
+				// Anthropic専用の実装
+				const hasKey = config && config.apiKey !== undefined
+				console.log("ExtensionStateContext handleMessage - hasKey:", hasKey, "config:", config)
 				setShowWelcome(!hasKey)
 				setDidHydrateState(true)
 				break
@@ -108,19 +88,6 @@ export const ExtensionStateContextProvider: React.FC<{
 				})
 				break
 			}
-			case "openRouterModels": {
-				const updatedModels = message.openRouterModels ?? {}
-				setOpenRouterModels({
-					[openRouterDefaultModelId]: openRouterDefaultModelInfo, // in case the extension sent a model list without the default model
-					...updatedModels,
-				})
-				break
-			}
-			case "openAiModels": {
-				const updatedModels = message.openAiModels ?? []
-				setOpenAiModels(updatedModels)
-				break
-			}
 			case "mcpServers": {
 				setMcpServers(message.mcpServers ?? [])
 				break
@@ -145,8 +112,7 @@ export const ExtensionStateContextProvider: React.FC<{
 		didHydrateState,
 		showWelcome,
 		theme,
-		openRouterModels,
-		openAiModels,
+		anthropicModels,
 		mcpServers,
 		mcpMarketplaceCatalog,
 		filePaths,

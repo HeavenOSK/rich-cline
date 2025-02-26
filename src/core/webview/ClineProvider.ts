@@ -40,59 +40,18 @@ https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default
 https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/customSidebarViewProvider.ts
 */
 
-type SecretKey =
-	| "apiKey"
-	| "openRouterApiKey"
-	| "awsAccessKey"
-	| "awsSecretKey"
-	| "awsSessionToken"
-	| "openAiApiKey"
-	| "geminiApiKey"
-	| "openAiNativeApiKey"
-	| "deepSeekApiKey"
-	| "requestyApiKey"
-	| "togetherApiKey"
-	| "qwenApiKey"
-	| "mistralApiKey"
-	| "liteLlmApiKey"
-	| "authToken"
-	| "authNonce"
+type SecretKey = "apiKey" | "authToken" | "authNonce"
 type GlobalStateKey =
 	| "apiProvider"
 	| "apiModelId"
-	| "awsRegion"
-	| "awsUseCrossRegionInference"
-	| "awsProfile"
-	| "awsUseProfile"
-	| "vertexProjectId"
-	| "vertexRegion"
+	| "anthropicBaseUrl"
 	| "lastShownAnnouncementId"
 	| "customInstructions"
 	| "taskHistory"
-	| "openAiBaseUrl"
-	| "openAiModelId"
-	| "openAiModelInfo"
-	| "ollamaModelId"
-	| "ollamaBaseUrl"
-	| "lmStudioModelId"
-	| "lmStudioBaseUrl"
-	| "anthropicBaseUrl"
-	| "azureApiVersion"
-	| "openRouterModelId"
-	| "openRouterModelInfo"
 	| "autoApprovalSettings"
 	| "browserSettings"
 	| "chatSettings"
-	| "vsCodeLmModelSelector"
 	| "userInfo"
-	| "previousModeApiProvider"
-	| "previousModeModelId"
-	| "previousModeModelInfo"
-	| "liteLlmBaseUrl"
-	| "liteLlmModelId"
-	| "qwenApiLine"
-	| "requestyModelId"
-	| "togetherModelId"
 	| "mcpMarketplaceCatalog"
 	| "telemetrySetting"
 
@@ -100,13 +59,13 @@ export const GlobalFileNames = {
 	apiConversationHistory: "api_conversation_history.json",
 	uiMessages: "ui_messages.json",
 	openRouterModels: "openrouter_models.json",
-	mcpSettings: "cline_mcp_settings.json",
+	mcpSettings: "rich_cline_mcp_settings.json",
 	clineRules: ".clinerules",
 }
 
 export class ClineProvider implements vscode.WebviewViewProvider {
-	public static readonly sideBarId = "claude-dev.SidebarProvider" // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
-	public static readonly tabPanelId = "claude-dev.TabPanelProvider"
+	public static readonly sideBarId = "rich-cline.SidebarProvider" // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
+	public static readonly tabPanelId = "rich-cline.TabPanelProvider"
 	private static activeInstances: Set<ClineProvider> = new Set()
 	private disposables: vscode.Disposable[] = []
 	private view?: vscode.WebviewView | vscode.WebviewPanel
@@ -159,7 +118,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	async handleSignOut() {
 		try {
 			await this.authManager.signOut()
-			vscode.window.showInformationMessage("Successfully logged out of Cline")
+			vscode.window.showInformationMessage("Successfully logged out of Rich Cline")
 		} catch (error) {
 			vscode.window.showErrorMessage("Logout failed")
 		}
@@ -252,7 +211,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						text: JSON.stringify(await getTheme()),
 					})
 				}
-				if (e && e.affectsConfiguration("cline.mcpMarketplace.enabled")) {
+				if (e && e.affectsConfiguration("rich-cline.mcpMarketplace.enabled")) {
 					// Update state when marketplace tab setting changes
 					await this.postStateToWebview()
 				}
@@ -389,7 +348,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
             <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}';">
             <link rel="stylesheet" type="text/css" href="${stylesUri}">
 			<link href="${codiconsUri}" rel="stylesheet" />
-            <title>Cline</title>
+            <title>Rich Cline</title>
           </head>
           <body>
             <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -419,15 +378,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 								text: JSON.stringify(theme),
 							}),
 						)
-						// post last cached models in case the call to endpoint fails
-						this.readOpenRouterModels().then((openRouterModels) => {
-							if (openRouterModels) {
-								this.postMessageToWebview({
-									type: "openRouterModels",
-									openRouterModels,
-								})
-							}
-						})
 						// gui relies on model info to be up-to-date to provide the most accurate pricing, so we need to fetch the latest details on launch.
 						// we do this for all users since many users switch between api providers and if they were to switch back to openrouter it would be showing outdated model info if we hadn't retrieved the latest at this point
 						// (see normalizeApiConfiguration > openrouter)
@@ -442,19 +392,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 							}
 						})
 						this.silentlyRefreshMcpMarketplace()
-						this.refreshOpenRouterModels().then(async (openRouterModels) => {
-							if (openRouterModels) {
-								// update model info in state (this needs to be done here since we don't want to update state while settings is open, and we may refresh models there)
-								const { apiConfiguration } = await this.getState()
-								if (apiConfiguration.openRouterModelId) {
-									await this.updateGlobalState(
-										"openRouterModelInfo",
-										openRouterModels[apiConfiguration.openRouterModelId],
-									)
-									await this.postStateToWebview()
-								}
-							}
-						})
 
 						// If user already opted in to telemetry, enable telemetry service
 						this.getStateToPostToWebview().then((state) => {
@@ -476,92 +413,19 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						await this.initClineWithTask(message.text, message.images)
 						break
 					case "apiConfiguration":
+						console.log("ClineProvider - Received apiConfiguration message:", message.apiConfiguration)
+						console.log("apiKey___BEFORE", message.apiConfiguration?.apiKey)
 						if (message.apiConfiguration) {
-							const {
-								apiProvider,
-								apiModelId,
-								apiKey,
-								openRouterApiKey,
-								awsAccessKey,
-								awsSecretKey,
-								awsSessionToken,
-								awsRegion,
-								awsUseCrossRegionInference,
-								awsProfile,
-								awsUseProfile,
-								vertexProjectId,
-								vertexRegion,
-								openAiBaseUrl,
-								openAiApiKey,
-								openAiModelId,
-								openAiModelInfo,
-								ollamaModelId,
-								ollamaBaseUrl,
-								lmStudioModelId,
-								lmStudioBaseUrl,
-								anthropicBaseUrl,
-								geminiApiKey,
-								openAiNativeApiKey,
-								deepSeekApiKey,
-								requestyApiKey,
-								requestyModelId,
-								togetherApiKey,
-								togetherModelId,
-								qwenApiKey,
-								mistralApiKey,
-								azureApiVersion,
-								openRouterModelId,
-								openRouterModelInfo,
-								vsCodeLmModelSelector,
-								liteLlmBaseUrl,
-								liteLlmModelId,
-								liteLlmApiKey,
-								qwenApiLine,
-							} = message.apiConfiguration
+							const { apiProvider, apiModelId, apiKey, anthropicBaseUrl } = message.apiConfiguration
 							await this.updateGlobalState("apiProvider", apiProvider)
 							await this.updateGlobalState("apiModelId", apiModelId)
 							await this.storeSecret("apiKey", apiKey)
-							await this.storeSecret("openRouterApiKey", openRouterApiKey)
-							await this.storeSecret("awsAccessKey", awsAccessKey)
-							await this.storeSecret("awsSecretKey", awsSecretKey)
-							await this.storeSecret("awsSessionToken", awsSessionToken)
-							await this.updateGlobalState("awsRegion", awsRegion)
-							await this.updateGlobalState("awsUseCrossRegionInference", awsUseCrossRegionInference)
-							await this.updateGlobalState("awsProfile", awsProfile)
-							await this.updateGlobalState("awsUseProfile", awsUseProfile)
-							await this.updateGlobalState("vertexProjectId", vertexProjectId)
-							await this.updateGlobalState("vertexRegion", vertexRegion)
-							await this.updateGlobalState("openAiBaseUrl", openAiBaseUrl)
-							await this.storeSecret("openAiApiKey", openAiApiKey)
-							await this.updateGlobalState("openAiModelId", openAiModelId)
-							await this.updateGlobalState("openAiModelInfo", openAiModelInfo)
-							await this.updateGlobalState("ollamaModelId", ollamaModelId)
-							await this.updateGlobalState("ollamaBaseUrl", ollamaBaseUrl)
-							await this.updateGlobalState("lmStudioModelId", lmStudioModelId)
-							await this.updateGlobalState("lmStudioBaseUrl", lmStudioBaseUrl)
-							await this.updateGlobalState("anthropicBaseUrl", anthropicBaseUrl)
-							await this.storeSecret("geminiApiKey", geminiApiKey)
-							await this.storeSecret("openAiNativeApiKey", openAiNativeApiKey)
-							await this.storeSecret("deepSeekApiKey", deepSeekApiKey)
-							await this.storeSecret("requestyApiKey", requestyApiKey)
-							await this.storeSecret("togetherApiKey", togetherApiKey)
-							await this.storeSecret("qwenApiKey", qwenApiKey)
-							await this.storeSecret("mistralApiKey", mistralApiKey)
-							await this.storeSecret("liteLlmApiKey", liteLlmApiKey)
-							await this.updateGlobalState("azureApiVersion", azureApiVersion)
-							await this.updateGlobalState("openRouterModelId", openRouterModelId)
-							await this.updateGlobalState("openRouterModelInfo", openRouterModelInfo)
-							await this.updateGlobalState("vsCodeLmModelSelector", vsCodeLmModelSelector)
-							await this.updateGlobalState("liteLlmBaseUrl", liteLlmBaseUrl)
-							await this.updateGlobalState("liteLlmModelId", liteLlmModelId)
-							await this.updateGlobalState("qwenApiLine", qwenApiLine)
-							await this.updateGlobalState("requestyModelId", requestyModelId)
-							await this.updateGlobalState("togetherModelId", togetherModelId)
 							if (this.cline) {
 								this.cline.api = buildApiHandler(message.apiConfiguration)
 							}
 						}
 						await this.postStateToWebview()
+						console.log("ClineProvider - Posted state to webview after apiConfiguration update")
 						break
 					case "customInstructions":
 						await this.updateCustomInstructions(message.text)
@@ -631,35 +495,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "resetState":
 						await this.resetState()
 						break
-					case "requestOllamaModels":
-						const ollamaModels = await this.getOllamaModels(message.text)
-						this.postMessageToWebview({
-							type: "ollamaModels",
-							ollamaModels,
-						})
-						break
-					case "requestLmStudioModels":
-						const lmStudioModels = await this.getLmStudioModels(message.text)
-						this.postMessageToWebview({
-							type: "lmStudioModels",
-							lmStudioModels,
-						})
-						break
-					case "requestVsCodeLmModels":
-						const vsCodeLmModels = await this.getVsCodeLmModels()
-						this.postMessageToWebview({ type: "vsCodeLmModels", vsCodeLmModels })
-						break
-					case "refreshOpenRouterModels":
-						await this.refreshOpenRouterModels()
-						break
-					case "refreshOpenAiModels":
-						const { apiConfiguration } = await this.getState()
-						const openAiModels = await this.getOpenAiModels(
-							apiConfiguration.openAiBaseUrl,
-							apiConfiguration.openAiApiKey,
-						)
-						this.postMessageToWebview({ type: "openAiModels", openAiModels })
-						break
 					case "openImage":
 						openImage(message.text!)
 						break
@@ -717,7 +552,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						const uriScheme = vscode.env.uriScheme
 
 						const authUrl = vscode.Uri.parse(
-							`https://app.cline.bot/auth?state=${encodeURIComponent(nonce)}&callback_url=${encodeURIComponent(`${uriScheme || "vscode"}://saoudrizwan.claude-dev/auth`)}`,
+							`https://app.cline.bot/auth?state=${encodeURIComponent(nonce)}&callback_url=${encodeURIComponent(`${uriScheme || "vscode"}://saoudrizwan.rich-cline/auth`)}`,
 						)
 						vscode.env.openExternal(authUrl)
 						break
@@ -751,7 +586,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 							// 2. Enable MCP settings if disabled
 							// Enable MCP mode if disabled
-							const mcpConfig = vscode.workspace.getConfiguration("cline.mcp")
+							const mcpConfig = vscode.workspace.getConfiguration("rich-cline.mcp")
 							if (mcpConfig.get<string>("mode") !== "full") {
 								await mcpConfig.update("mode", "full", true)
 							}
@@ -853,7 +688,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						const settingsFilter = message.text || ""
 						await vscode.commands.executeCommand(
 							"workbench.action.openSettings",
-							`@ext:saoudrizwan.claude-dev ${settingsFilter}`.trim(), // trim whitespace if no settings filter
+							`@ext:saoudrizwan.rich-cline ${settingsFilter}`.trim(), // trim whitespace if no settings filter
 						)
 						break
 					}
@@ -883,93 +718,14 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	}
 
 	async togglePlanActModeWithChatSettings(chatSettings: ChatSettings, chatContent?: ChatContent) {
-		const didSwitchToActMode = chatSettings.mode === "act"
-
-		// Get previous model info that we will revert to after saving current mode api info
-		const {
-			apiConfiguration,
-			previousModeApiProvider: newApiProvider,
-			previousModeModelId: newModelId,
-			previousModeModelInfo: newModelInfo,
-		} = await this.getState()
-
-		// Save the last model used in this mode
-		await this.updateGlobalState("previousModeApiProvider", apiConfiguration.apiProvider)
-		switch (apiConfiguration.apiProvider) {
-			case "anthropic":
-			case "bedrock":
-			case "vertex":
-			case "gemini":
-				await this.updateGlobalState("previousModeModelId", apiConfiguration.apiModelId)
-				break
-			case "openrouter":
-				await this.updateGlobalState("previousModeModelId", apiConfiguration.openRouterModelId)
-				await this.updateGlobalState("previousModeModelInfo", apiConfiguration.openRouterModelInfo)
-				break
-			case "vscode-lm":
-				await this.updateGlobalState("previousModeModelId", apiConfiguration.vsCodeLmModelSelector)
-				break
-			case "openai":
-				await this.updateGlobalState("previousModeModelId", apiConfiguration.openAiModelId)
-				await this.updateGlobalState("previousModeModelInfo", apiConfiguration.openAiModelInfo)
-				break
-			case "ollama":
-				await this.updateGlobalState("previousModeModelId", apiConfiguration.ollamaModelId)
-				break
-			case "lmstudio":
-				await this.updateGlobalState("previousModeModelId", apiConfiguration.lmStudioModelId)
-				break
-			case "litellm":
-				await this.updateGlobalState("previousModeModelId", apiConfiguration.liteLlmModelId)
-				break
-		}
-
-		// Restore the model used in previous mode
-		if (newApiProvider && newModelId) {
-			await this.updateGlobalState("apiProvider", newApiProvider)
-			switch (newApiProvider) {
-				case "anthropic":
-				case "bedrock":
-				case "vertex":
-				case "gemini":
-					await this.updateGlobalState("apiModelId", newModelId)
-					break
-				case "openrouter":
-					await this.updateGlobalState("openRouterModelId", newModelId)
-					await this.updateGlobalState("openRouterModelInfo", newModelInfo)
-					break
-				case "vscode-lm":
-					await this.updateGlobalState("vsCodeLmModelSelector", newModelId)
-					break
-				case "openai":
-					await this.updateGlobalState("openAiModelId", newModelId)
-					await this.updateGlobalState("openAiModelInfo", newModelInfo)
-					break
-				case "ollama":
-					await this.updateGlobalState("ollamaModelId", newModelId)
-					break
-				case "lmstudio":
-					await this.updateGlobalState("lmStudioModelId", newModelId)
-					break
-				case "litellm":
-					await this.updateGlobalState("liteLlmModelId", newModelId)
-					break
-			}
-
-			if (this.cline) {
-				const { apiConfiguration: updatedApiConfiguration } = await this.getState()
-				this.cline.api = buildApiHandler(updatedApiConfiguration)
-			}
-		}
-
+		// 設定を更新
 		await this.updateGlobalState("chatSettings", chatSettings)
 		await this.postStateToWebview()
-		// console.log("chatSettings", message.chatSettings)
+
 		if (this.cline) {
 			this.cline.updateChatSettings(chatSettings)
-			if (this.cline.isAwaitingPlanResponse && didSwitchToActMode) {
+			if (this.cline.isAwaitingPlanResponse && chatSettings.mode === "act") {
 				this.cline.didRespondToPlanAskBySwitchingMode = true
-				// this is necessary for the webview to update accordingly, but Cline instance will not send text back as feedback message
 				await this.postMessageToWebview({
 					type: "invoke",
 					invoke: "sendMessage",
@@ -1073,11 +829,11 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	async ensureMcpServersDirectoryExists(): Promise<string> {
 		const userDocumentsPath = await this.getDocumentsPath()
-		const mcpServersDir = path.join(userDocumentsPath, "Cline", "MCP")
+		const mcpServersDir = path.join(userDocumentsPath, "Rich Cline", "MCP")
 		try {
 			await fs.mkdir(mcpServersDir, { recursive: true })
 		} catch (error) {
-			return "~/Documents/Cline/MCP" // in case creating a directory in documents fails for whatever reason (e.g. permissions) - this is fine since this path is only ever used in the system prompt
+			return "~/Documents/Rich Cline/MCP" // in case creating a directory in documents fails for whatever reason (e.g. permissions) - this is fine since this path is only ever used in the system prompt
 		}
 		return mcpServersDir
 	}
@@ -1086,56 +842,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		const settingsDir = path.join(this.context.globalStorageUri.fsPath, "settings")
 		await fs.mkdir(settingsDir, { recursive: true })
 		return settingsDir
-	}
-
-	// VSCode LM API
-
-	private async getVsCodeLmModels() {
-		try {
-			const models = await vscode.lm.selectChatModels({})
-			return models || []
-		} catch (error) {
-			console.error("Error fetching VS Code LM models:", error)
-			return []
-		}
-	}
-
-	// Ollama
-
-	async getOllamaModels(baseUrl?: string) {
-		try {
-			if (!baseUrl) {
-				baseUrl = "http://localhost:11434"
-			}
-			if (!URL.canParse(baseUrl)) {
-				return []
-			}
-			const response = await axios.get(`${baseUrl}/api/tags`)
-			const modelsArray = response.data?.models?.map((model: any) => model.name) || []
-			const models = [...new Set<string>(modelsArray)]
-			return models
-		} catch (error) {
-			return []
-		}
-	}
-
-	// LM Studio
-
-	async getLmStudioModels(baseUrl?: string) {
-		try {
-			if (!baseUrl) {
-				baseUrl = "http://localhost:1234"
-			}
-			if (!URL.canParse(baseUrl)) {
-				return []
-			}
-			const response = await axios.get(`${baseUrl}/v1/models`)
-			const modelsArray = response.data?.data?.map((model: any) => model.id) || []
-			const models = [...new Set<string>(modelsArray)]
-			return models
-		} catch (error) {
-			return []
-		}
 	}
 
 	// Auth
@@ -1157,10 +863,10 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			// Then store the token securely
 			await this.storeSecret("authToken", token)
 			await this.postStateToWebview()
-			vscode.window.showInformationMessage("Successfully logged in to Cline")
+			vscode.window.showInformationMessage("Successfully logged in to Rich Cline")
 		} catch (error) {
 			console.error("Failed to handle auth callback:", error)
-			vscode.window.showErrorMessage("Failed to log in to Cline")
+			vscode.window.showErrorMessage("Failed to log in to Rich Cline")
 		}
 	}
 
@@ -1292,7 +998,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 			// Create task with context from README and added guidelines for MCP server installation
 			const task = `Set up the MCP server from ${mcpDetails.githubUrl} while adhering to these MCP server installation rules:
-- Use "${mcpDetails.mcpId}" as the server name in cline_mcp_settings.json.
+- Use "${mcpDetails.mcpId}" as the server name in rich_cline_mcp_settings.json.
 - Create the directory for the new MCP server before starting installation.
 - Use commands aligned with the user's shell and operating system best practices.
 - The following README may contain instructions that conflict with the user's OS, in which case proceed thoughtfully.
@@ -1332,61 +1038,6 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 		}
 	}
 
-	// OpenAi
-
-	async getOpenAiModels(baseUrl?: string, apiKey?: string) {
-		try {
-			if (!baseUrl) {
-				return []
-			}
-
-			if (!URL.canParse(baseUrl)) {
-				return []
-			}
-
-			const config: Record<string, any> = {}
-			if (apiKey) {
-				config["headers"] = { Authorization: `Bearer ${apiKey}` }
-			}
-
-			const response = await axios.get(`${baseUrl}/models`, config)
-			const modelsArray = response.data?.data?.map((model: any) => model.id) || []
-			const models = [...new Set<string>(modelsArray)]
-			return models
-		} catch (error) {
-			return []
-		}
-	}
-
-	// OpenRouter
-
-	async handleOpenRouterCallback(code: string) {
-		let apiKey: string
-		try {
-			const response = await axios.post("https://openrouter.ai/api/v1/auth/keys", { code })
-			if (response.data && response.data.key) {
-				apiKey = response.data.key
-			} else {
-				throw new Error("Invalid response from OpenRouter API")
-			}
-		} catch (error) {
-			console.error("Error exchanging code for API key:", error)
-			throw error
-		}
-
-		const openrouter: ApiProvider = "openrouter"
-		await this.updateGlobalState("apiProvider", openrouter)
-		await this.storeSecret("openRouterApiKey", apiKey)
-		await this.postStateToWebview()
-		if (this.cline) {
-			this.cline.api = buildApiHandler({
-				apiProvider: openrouter,
-				openRouterApiKey: apiKey,
-			})
-		}
-		// await this.postMessageToWebview({ type: "action", action: "settingsButtonClicked" }) // bad ux if user is on welcome
-	}
-
 	private async ensureCacheDirectoryExists(): Promise<string> {
 		const cacheDir = path.join(this.context.globalStorageUri.fsPath, "cache")
 		await fs.mkdir(cacheDir, { recursive: true })
@@ -1403,129 +1054,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 		return undefined
 	}
 
-	async refreshOpenRouterModels() {
-		const openRouterModelsFilePath = path.join(await this.ensureCacheDirectoryExists(), GlobalFileNames.openRouterModels)
-
-		let models: Record<string, ModelInfo> = {}
-		try {
-			const response = await axios.get("https://openrouter.ai/api/v1/models")
-			/*
-			{
-				"id": "anthropic/claude-3.5-sonnet",
-				"name": "Anthropic: Claude 3.5 Sonnet",
-				"created": 1718841600,
-				"description": "Claude 3.5 Sonnet delivers better-than-Opus capabilities, faster-than-Sonnet speeds, at the same Sonnet prices. Sonnet is particularly good at:\n\n- Coding: Autonomously writes, edits, and runs code with reasoning and troubleshooting\n- Data science: Augments human data science expertise; navigates unstructured data while using multiple tools for insights\n- Visual processing: excelling at interpreting charts, graphs, and images, accurately transcribing text to derive insights beyond just the text alone\n- Agentic tasks: exceptional tool use, making it great at agentic tasks (i.e. complex, multi-step problem solving tasks that require engaging with other systems)\n\n#multimodal",
-				"context_length": 200000,
-				"architecture": {
-					"modality": "text+image-\u003Etext",
-					"tokenizer": "Claude",
-					"instruct_type": null
-				},
-				"pricing": {
-					"prompt": "0.000003",
-					"completion": "0.000015",
-					"image": "0.0048",
-					"request": "0"
-				},
-				"top_provider": {
-					"context_length": 200000,
-					"max_completion_tokens": 8192,
-					"is_moderated": true
-				},
-				"per_request_limits": null
-			},
-			*/
-			if (response.data?.data) {
-				const rawModels = response.data.data
-				const parsePrice = (price: any) => {
-					if (price) {
-						return parseFloat(price) * 1_000_000
-					}
-					return undefined
-				}
-				for (const rawModel of rawModels) {
-					const modelInfo: ModelInfo = {
-						maxTokens: rawModel.top_provider?.max_completion_tokens,
-						contextWindow: rawModel.context_length,
-						supportsImages: rawModel.architecture?.modality?.includes("image"),
-						supportsPromptCache: false,
-						inputPrice: parsePrice(rawModel.pricing?.prompt),
-						outputPrice: parsePrice(rawModel.pricing?.completion),
-						description: rawModel.description,
-					}
-
-					switch (rawModel.id) {
-						case "anthropic/claude-3-7-sonnet":
-						case "anthropic/claude-3-7-sonnet:beta":
-						case "anthropic/claude-3.7-sonnet":
-						case "anthropic/claude-3.7-sonnet:beta":
-						case "anthropic/claude-3.5-sonnet":
-						case "anthropic/claude-3.5-sonnet:beta":
-							// NOTE: this needs to be synced with api.ts/openrouter default model info
-							modelInfo.supportsComputerUse = true
-							modelInfo.supportsPromptCache = true
-							modelInfo.cacheWritesPrice = 3.75
-							modelInfo.cacheReadsPrice = 0.3
-							break
-						case "anthropic/claude-3.5-sonnet-20240620":
-						case "anthropic/claude-3.5-sonnet-20240620:beta":
-							modelInfo.supportsPromptCache = true
-							modelInfo.cacheWritesPrice = 3.75
-							modelInfo.cacheReadsPrice = 0.3
-							break
-						case "anthropic/claude-3-5-haiku":
-						case "anthropic/claude-3-5-haiku:beta":
-						case "anthropic/claude-3-5-haiku-20241022":
-						case "anthropic/claude-3-5-haiku-20241022:beta":
-						case "anthropic/claude-3.5-haiku":
-						case "anthropic/claude-3.5-haiku:beta":
-						case "anthropic/claude-3.5-haiku-20241022":
-						case "anthropic/claude-3.5-haiku-20241022:beta":
-							modelInfo.supportsPromptCache = true
-							modelInfo.cacheWritesPrice = 1.25
-							modelInfo.cacheReadsPrice = 0.1
-							break
-						case "anthropic/claude-3-opus":
-						case "anthropic/claude-3-opus:beta":
-							modelInfo.supportsPromptCache = true
-							modelInfo.cacheWritesPrice = 18.75
-							modelInfo.cacheReadsPrice = 1.5
-							break
-						case "anthropic/claude-3-haiku":
-						case "anthropic/claude-3-haiku:beta":
-							modelInfo.supportsPromptCache = true
-							modelInfo.cacheWritesPrice = 0.3
-							modelInfo.cacheReadsPrice = 0.03
-							break
-						case "deepseek/deepseek-chat":
-							modelInfo.supportsPromptCache = true
-							// see api.ts/deepSeekModels for more info
-							modelInfo.inputPrice = 0
-							modelInfo.cacheWritesPrice = 0.14
-							modelInfo.cacheReadsPrice = 0.014
-							break
-					}
-
-					models[rawModel.id] = modelInfo
-				}
-			} else {
-				console.error("Invalid response from OpenRouter API")
-			}
-			await fs.writeFile(openRouterModelsFilePath, JSON.stringify(models))
-			console.log("OpenRouter models fetched and saved", models)
-		} catch (error) {
-			console.error("Error fetching OpenRouter models:", error)
-		}
-
-		await this.postMessageToWebview({
-			type: "openRouterModels",
-			openRouterModels: models,
-		})
-		return models
-	}
-
 	// Task history
-
 	async getTaskWithId(id: string): Promise<{
 		historyItem: HistoryItem
 		taskDirPath: string
@@ -1642,14 +1171,18 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 		} = await this.getState()
 
 		return {
-			version: this.context.extension?.packageJSON?.version ?? "",
 			apiConfiguration,
+			version: this.context.extension?.packageJSON?.version ?? "",
 			customInstructions,
 			uriScheme: vscode.env.uriScheme,
-			currentTaskItem: this.cline?.taskId ? (taskHistory || []).find((item) => item.id === this.cline?.taskId) : undefined,
+			currentTaskItem: this.cline?.taskId
+				? ((taskHistory as HistoryItem[]) || []).find((item: HistoryItem) => item.id === this.cline?.taskId)
+				: undefined,
 			checkpointTrackerErrorMessage: this.cline?.checkpointTrackerErrorMessage,
 			clineMessages: this.cline?.clineMessages || [],
-			taskHistory: (taskHistory || []).filter((item) => item.ts && item.task).sort((a, b) => b.ts - a.ts),
+			taskHistory: ((taskHistory as HistoryItem[]) || [])
+				.filter((item: HistoryItem) => item.ts && item.task)
+				.sort((a: HistoryItem, b: HistoryItem) => b.ts - a.ts),
 			shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
 			platform: process.platform as Platform,
 			autoApprovalSettings,
@@ -1712,188 +1245,59 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 	https://dev.to/kompotkot/how-to-use-secretstorage-in-your-vscode-extensions-2hco
 	https://www.eliostruyf.com/devhack-code-extension-storage-options/
 	*/
-
 	async getState() {
 		const [
 			storedApiProvider,
 			apiModelId,
 			apiKey,
-			openRouterApiKey,
-			awsAccessKey,
-			awsSecretKey,
-			awsSessionToken,
-			awsRegion,
-			awsUseCrossRegionInference,
-			awsProfile,
-			awsUseProfile,
-			vertexProjectId,
-			vertexRegion,
-			openAiBaseUrl,
-			openAiApiKey,
-			openAiModelId,
-			openAiModelInfo,
-			ollamaModelId,
-			ollamaBaseUrl,
-			lmStudioModelId,
-			lmStudioBaseUrl,
 			anthropicBaseUrl,
-			geminiApiKey,
-			openAiNativeApiKey,
-			deepSeekApiKey,
-			requestyApiKey,
-			requestyModelId,
-			togetherApiKey,
-			togetherModelId,
-			qwenApiKey,
-			mistralApiKey,
-			azureApiVersion,
-			openRouterModelId,
-			openRouterModelInfo,
 			lastShownAnnouncementId,
 			customInstructions,
 			taskHistory,
 			autoApprovalSettings,
 			browserSettings,
 			chatSettings,
-			vsCodeLmModelSelector,
-			liteLlmBaseUrl,
-			liteLlmModelId,
 			userInfo,
 			authToken,
-			previousModeApiProvider,
-			previousModeModelId,
-			previousModeModelInfo,
-			qwenApiLine,
-			liteLlmApiKey,
 			telemetrySetting,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("apiModelId") as Promise<string | undefined>,
 			this.getSecret("apiKey") as Promise<string | undefined>,
-			this.getSecret("openRouterApiKey") as Promise<string | undefined>,
-			this.getSecret("awsAccessKey") as Promise<string | undefined>,
-			this.getSecret("awsSecretKey") as Promise<string | undefined>,
-			this.getSecret("awsSessionToken") as Promise<string | undefined>,
-			this.getGlobalState("awsRegion") as Promise<string | undefined>,
-			this.getGlobalState("awsUseCrossRegionInference") as Promise<boolean | undefined>,
-			this.getGlobalState("awsProfile") as Promise<string | undefined>,
-			this.getGlobalState("awsUseProfile") as Promise<boolean | undefined>,
-			this.getGlobalState("vertexProjectId") as Promise<string | undefined>,
-			this.getGlobalState("vertexRegion") as Promise<string | undefined>,
-			this.getGlobalState("openAiBaseUrl") as Promise<string | undefined>,
-			this.getSecret("openAiApiKey") as Promise<string | undefined>,
-			this.getGlobalState("openAiModelId") as Promise<string | undefined>,
-			this.getGlobalState("openAiModelInfo") as Promise<ModelInfo | undefined>,
-			this.getGlobalState("ollamaModelId") as Promise<string | undefined>,
-			this.getGlobalState("ollamaBaseUrl") as Promise<string | undefined>,
-			this.getGlobalState("lmStudioModelId") as Promise<string | undefined>,
-			this.getGlobalState("lmStudioBaseUrl") as Promise<string | undefined>,
 			this.getGlobalState("anthropicBaseUrl") as Promise<string | undefined>,
-			this.getSecret("geminiApiKey") as Promise<string | undefined>,
-			this.getSecret("openAiNativeApiKey") as Promise<string | undefined>,
-			this.getSecret("deepSeekApiKey") as Promise<string | undefined>,
-			this.getSecret("requestyApiKey") as Promise<string | undefined>,
-			this.getGlobalState("requestyModelId") as Promise<string | undefined>,
-			this.getSecret("togetherApiKey") as Promise<string | undefined>,
-			this.getGlobalState("togetherModelId") as Promise<string | undefined>,
-			this.getSecret("qwenApiKey") as Promise<string | undefined>,
-			this.getSecret("mistralApiKey") as Promise<string | undefined>,
-			this.getGlobalState("azureApiVersion") as Promise<string | undefined>,
-			this.getGlobalState("openRouterModelId") as Promise<string | undefined>,
-			this.getGlobalState("openRouterModelInfo") as Promise<ModelInfo | undefined>,
 			this.getGlobalState("lastShownAnnouncementId") as Promise<string | undefined>,
 			this.getGlobalState("customInstructions") as Promise<string | undefined>,
 			this.getGlobalState("taskHistory") as Promise<HistoryItem[] | undefined>,
 			this.getGlobalState("autoApprovalSettings") as Promise<AutoApprovalSettings | undefined>,
 			this.getGlobalState("browserSettings") as Promise<BrowserSettings | undefined>,
 			this.getGlobalState("chatSettings") as Promise<ChatSettings | undefined>,
-			this.getGlobalState("vsCodeLmModelSelector") as Promise<vscode.LanguageModelChatSelector | undefined>,
-			this.getGlobalState("liteLlmBaseUrl") as Promise<string | undefined>,
-			this.getGlobalState("liteLlmModelId") as Promise<string | undefined>,
 			this.getGlobalState("userInfo") as Promise<UserInfo | undefined>,
 			this.getSecret("authToken") as Promise<string | undefined>,
-			this.getGlobalState("previousModeApiProvider") as Promise<ApiProvider | undefined>,
-			this.getGlobalState("previousModeModelId") as Promise<string | undefined>,
-			this.getGlobalState("previousModeModelInfo") as Promise<ModelInfo | undefined>,
-			this.getGlobalState("qwenApiLine") as Promise<string | undefined>,
-			this.getSecret("liteLlmApiKey") as Promise<string | undefined>,
 			this.getGlobalState("telemetrySetting") as Promise<TelemetrySetting | undefined>,
 		])
 
-		let apiProvider: ApiProvider
-		if (storedApiProvider) {
-			apiProvider = storedApiProvider
-		} else {
-			// Either new user or legacy user that doesn't have the apiProvider stored in state
-			// (If they're using OpenRouter or Bedrock, then apiProvider state will exist)
-			if (apiKey) {
-				apiProvider = "anthropic"
-			} else {
-				// New users should default to openrouter
-				apiProvider = "openrouter"
-			}
-		}
+		// 常に "anthropic" を使用
+		const apiProvider: ApiProvider = "anthropic"
 
-		const o3MiniReasoningEffort = vscode.workspace
-			.getConfiguration("cline.modelSettings.o3Mini")
-			.get("reasoningEffort", "medium")
-
-		const mcpMarketplaceEnabled = vscode.workspace.getConfiguration("cline").get<boolean>("mcpMarketplace.enabled", true)
+		const mcpMarketplaceEnabled = vscode.workspace.getConfiguration("rich-cline").get<boolean>("mcpMarketplace.enabled", true)
 
 		return {
 			apiConfiguration: {
 				apiProvider,
 				apiModelId,
 				apiKey,
-				openRouterApiKey,
-				awsAccessKey,
-				awsSecretKey,
-				awsSessionToken,
-				awsRegion,
-				awsUseCrossRegionInference,
-				awsProfile,
-				awsUseProfile,
-				vertexProjectId,
-				vertexRegion,
-				openAiBaseUrl,
-				openAiApiKey,
-				openAiModelId,
-				openAiModelInfo,
-				ollamaModelId,
-				ollamaBaseUrl,
-				lmStudioModelId,
-				lmStudioBaseUrl,
 				anthropicBaseUrl,
-				geminiApiKey,
-				openAiNativeApiKey,
-				deepSeekApiKey,
-				requestyApiKey,
-				requestyModelId,
-				togetherApiKey,
-				togetherModelId,
-				qwenApiKey,
-				qwenApiLine,
-				mistralApiKey,
-				azureApiVersion,
-				openRouterModelId,
-				openRouterModelInfo,
-				vsCodeLmModelSelector,
-				o3MiniReasoningEffort,
-				liteLlmBaseUrl,
-				liteLlmModelId,
-				liteLlmApiKey,
+				extendedThinking: true,
+				extendedThinkingVisibility: "streaming_only" as const, // 明示的に型を指定
 			},
 			lastShownAnnouncementId,
 			customInstructions,
 			taskHistory,
-			autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
+			autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS,
 			browserSettings: browserSettings || DEFAULT_BROWSER_SETTINGS,
 			chatSettings: chatSettings || DEFAULT_CHAT_SETTINGS,
 			userInfo,
 			authToken,
-			previousModeApiProvider,
-			previousModeModelId,
-			previousModeModelInfo,
 			mcpMarketplaceEnabled,
 			telemetrySetting: telemetrySetting || "unset",
 		}
@@ -1962,23 +1366,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 		for (const key of this.context.globalState.keys()) {
 			await this.context.globalState.update(key, undefined)
 		}
-		const secretKeys: SecretKey[] = [
-			"apiKey",
-			"openRouterApiKey",
-			"awsAccessKey",
-			"awsSecretKey",
-			"awsSessionToken",
-			"openAiApiKey",
-			"geminiApiKey",
-			"openAiNativeApiKey",
-			"deepSeekApiKey",
-			"requestyApiKey",
-			"togetherApiKey",
-			"qwenApiKey",
-			"mistralApiKey",
-			"liteLlmApiKey",
-			"authToken",
-		]
+		const secretKeys: SecretKey[] = ["apiKey", "authToken"]
 		for (const key of secretKeys) {
 			await this.storeSecret(key, undefined)
 		}

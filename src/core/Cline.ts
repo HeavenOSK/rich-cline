@@ -9,8 +9,7 @@ import * as path from "path"
 import { serializeError } from "serialize-error"
 import * as vscode from "vscode"
 import { ApiHandler, buildApiHandler } from "../api"
-import { OpenAiHandler } from "../api/providers/openai"
-import { OpenRouterHandler } from "../api/providers/openrouter"
+// Anthropic専用化のため、他のプロバイダーの参照を削除
 import { ApiStream } from "../api/transform/stream"
 import CheckpointTracker from "../integrations/checkpoints/CheckpointTracker"
 import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "../integrations/editor/DiffViewProvider"
@@ -934,7 +933,13 @@ export class Cline {
 					existingApiConversationHistory[existingApiConversationHistory.length - 2]
 
 				const existingUserContent: UserContent = Array.isArray(lastMessage.content)
-					? lastMessage.content
+					? (lastMessage.content.filter(
+							(block) =>
+								block.type === "text" ||
+								block.type === "image" ||
+								block.type === "tool_use" ||
+								block.type === "tool_result",
+						) as UserContent)
 					: [{ type: "text", text: lastMessage.content }]
 				if (previousAssistantMessage && previousAssistantMessage.role === "assistant") {
 					const assistantContent = Array.isArray(previousAssistantMessage.content)
@@ -1300,10 +1305,6 @@ export class Cline {
 				const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(previousRequest.text)
 				const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
 				let contextWindow = this.api.getModel().info.contextWindow || 128_000
-				// FIXME: hack to get anyone using openai compatible with deepseek to have the proper context window instead of the default 128k. We need a way for the user to specify the context window for models they input through openai compatible
-				if (this.api instanceof OpenAiHandler && this.api.getModel().id.toLowerCase().includes("deepseek")) {
-					contextWindow = 64_000
-				}
 				let maxAllowedSize: number
 				switch (contextWindow) {
 					case 64_000: // deepseek models
@@ -1355,23 +1356,17 @@ export class Cline {
 			yield firstChunk.value
 			this.isWaitingForFirstChunk = false
 		} catch (error) {
-			const isOpenRouter = this.api instanceof OpenRouterHandler
-			if (isOpenRouter && !this.didAutomaticallyRetryFailedApiRequest) {
-				console.log("first chunk failed, waiting 1 second before retrying")
-				await delay(1000)
-				this.didAutomaticallyRetryFailedApiRequest = true
-			} else {
-				// request failed after retrying automatically once, ask user if they want to retry again
-				// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
-				const errorMessage = this.formatErrorWithStatusCode(error)
+			// request failed after retrying automatically once, ask user if they want to retry again
+			// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
+			const errorMessage = this.formatErrorWithStatusCode(error)
 
-				const { response } = await this.ask("api_req_failed", errorMessage)
-				if (response !== "yesButtonClicked") {
-					// this will never happen since if noButtonClicked, we will clear current task, aborting this instance
-					throw new Error("API request failed")
-				}
-				await this.say("api_req_retried")
+			const { response } = await this.ask("api_req_failed", errorMessage)
+			if (response !== "yesButtonClicked") {
+				// this will never happen since if noButtonClicked, we will clear current task, aborting this instance
+				throw new Error("API request failed")
 			}
+			await this.say("api_req_retried")
+
 			// delegate generator output from the recursive call
 			yield* this.attemptApiRequest(previousApiReqIndex)
 			return
@@ -3134,7 +3129,8 @@ export class Cline {
 
 			const stream = this.attemptApiRequest(previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
 			let assistantMessage = ""
-			let reasoningMessage = ""
+			let thinkingMessage = ""
+			const getThinkingMessage = () => `<thinking>${thinkingMessage}</thinking>\n`
 			this.isStreaming = true
 			try {
 				for await (const chunk of stream) {
@@ -3149,26 +3145,33 @@ export class Cline {
 							cacheReadTokens += chunk.cacheReadTokens ?? 0
 							totalCost = chunk.totalCost
 							break
-						case "reasoning":
+						case "thinking": {
 							// reasoning will always come before assistant message
-							reasoningMessage += chunk.reasoning
-							await this.say("reasoning", reasoningMessage, undefined, true)
-							break
-						case "text":
-							if (reasoningMessage && assistantMessage.length === 0) {
-								// complete reasoning message
-								await this.say("reasoning", reasoningMessage, undefined, false)
-							}
-							assistantMessage += chunk.text
+							thinkingMessage += chunk.thinking
 							// parse raw assistant message into content blocks
 							const prevLength = this.assistantMessageContent.length
-							this.assistantMessageContent = parseAssistantMessage(assistantMessage)
+							this.assistantMessageContent = parseAssistantMessage(`<thinking>${thinkingMessage}`)
 							if (this.assistantMessageContent.length > prevLength) {
 								this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
 							}
 							// present content to user
 							this.presentAssistantMessage()
 							break
+						}
+						case "text": {
+							assistantMessage += chunk.text
+							// parse raw assistant message into content blocks
+							const prevLength = this.assistantMessageContent.length
+							this.assistantMessageContent = parseAssistantMessage(
+								`<thinking>${thinkingMessage}</thinking>\n` + assistantMessage,
+							)
+							if (this.assistantMessageContent.length > prevLength) {
+								this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
+							}
+							// present content to user
+							this.presentAssistantMessage()
+							break
+						}
 					}
 
 					if (this.abort) {

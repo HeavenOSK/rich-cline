@@ -214,7 +214,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		},
 		ref,
 	) => {
-		const { filePaths, chatSettings, apiConfiguration, openRouterModels, platform } = useExtensionState()
+		const { filePaths, chatSettings, apiConfiguration, anthropicModels, platform } = useExtensionState()
 		const [isTextAreaFocused, setIsTextAreaFocused] = useState(false)
 		const [gitCommits, setGitCommits] = useState<any[]>([])
 
@@ -635,14 +635,14 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		// Separate the API config submission logic
 		const submitApiConfig = useCallback(() => {
 			const apiValidationResult = validateApiConfiguration(apiConfiguration)
-			const modelIdValidationResult = validateModelId(apiConfiguration, openRouterModels)
+			const modelIdValidationResult = validateModelId(apiConfiguration)
 
 			if (!apiValidationResult && !modelIdValidationResult) {
 				vscode.postMessage({ type: "apiConfiguration", apiConfiguration })
 			} else {
 				vscode.postMessage({ type: "getLatestState" })
 			}
-		}, [apiConfiguration, openRouterModels])
+		}, [apiConfiguration])
 
 		const onModeToggle = useCallback(() => {
 			// if (textAreaDisabled) return
@@ -736,32 +736,10 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			setShowModelSelector(false)
 		})
 
-		// Get model display name
+		// Anthropic専用のモデル表示名
 		const modelDisplayName = useMemo(() => {
-			const { selectedProvider, selectedModelId } = normalizeApiConfiguration(apiConfiguration)
-			const unknownModel = "unknown"
-			if (!apiConfiguration) return unknownModel
-			switch (selectedProvider) {
-				case "anthropic":
-				case "openrouter":
-					return `${selectedProvider}:${selectedModelId}`
-				case "openai":
-					return `openai-compat:${selectedModelId}`
-				case "vscode-lm":
-					return `vscode-lm:${apiConfiguration.vsCodeLmModelSelector ? `${apiConfiguration.vsCodeLmModelSelector.vendor ?? ""}/${apiConfiguration.vsCodeLmModelSelector.family ?? ""}` : unknownModel}`
-				case "together":
-					return `${selectedProvider}:${apiConfiguration.togetherModelId}`
-				case "lmstudio":
-					return `${selectedProvider}:${apiConfiguration.lmStudioModelId}`
-				case "ollama":
-					return `${selectedProvider}:${apiConfiguration.ollamaModelId}`
-				case "litellm":
-					return `${selectedProvider}:${apiConfiguration.liteLlmModelId}`
-				case "requesty":
-					return `${selectedProvider}:${apiConfiguration.requestyModelId}`
-				default:
-					return `${selectedProvider}:${selectedModelId}`
-			}
+			if (!apiConfiguration) return "unknown"
+			return `anthropic:${apiConfiguration.apiModelId || "claude-3-7-sonnet-20250219"}`
 		}, [apiConfiguration])
 
 		// Calculate arrow position and menu position based on button location
@@ -1121,12 +1099,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									style={{
 										bottom: `calc(100vh - ${menuPosition}px + 6px)`,
 									}}>
-									<ApiOptions
-										showModelOptions={true}
-										apiErrorMessage={undefined}
-										modelIdErrorMessage={undefined}
-										isPopup={true}
-									/>
+									<ApiOptions showModelOptions={true} />
 								</ModelSelectorTooltip>
 							)}
 						</ModelContainer>

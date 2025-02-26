@@ -1,6 +1,6 @@
 {
-	"name": "claude-dev",
-	"displayName": "Cline",
+	"name": "rich-cline",
+	"displayName": "Rich Cline",
 	"description": "Autonomous coding agent right in your IDE, capable of creating/editing files, running commands, using the browser, and more with your permission every step of the way.",
 	"version": "3.4.9",
 	"icon": "assets/icons/icon.png",
@@ -49,86 +49,86 @@
 		"viewsContainers": {
 			"activitybar": [
 				{
-					"id": "claude-dev-ActivityBar",
-					"title": "Cline",
+					"id": "rich-cline-ActivityBar",
+					"title": "Rich Cline",
 					"icon": "assets/icons/icon.svg"
 				}
 			]
 		},
 		"views": {
-			"claude-dev-ActivityBar": [
+			"rich-cline-ActivityBar": [
 				{
 					"type": "webview",
-					"id": "claude-dev.SidebarProvider",
+					"id": "rich-cline.SidebarProvider",
 					"name": ""
 				}
 			]
 		},
 		"commands": [
 			{
-				"command": "cline.plusButtonClicked",
+				"command": "rich-cline.plusButtonClicked",
 				"title": "New Task",
 				"icon": "$(add)"
 			},
 			{
-				"command": "cline.mcpButtonClicked",
+				"command": "rich-cline.mcpButtonClicked",
 				"title": "MCP Servers",
 				"icon": "$(extensions)"
 			},
 			{
-				"command": "cline.historyButtonClicked",
+				"command": "rich-cline.historyButtonClicked",
 				"title": "History",
 				"icon": "$(history)"
 			},
 			{
-				"command": "cline.popoutButtonClicked",
+				"command": "rich-cline.popoutButtonClicked",
 				"title": "Open in Editor",
 				"icon": "$(link-external)"
 			},
 			{
-				"command": "cline.settingsButtonClicked",
+				"command": "rich-cline.settingsButtonClicked",
 				"title": "Settings",
 				"icon": "$(settings-gear)"
 			},
 			{
-				"command": "cline.openInNewTab",
+				"command": "rich-cline.openInNewTab",
 				"title": "Open In New Tab",
-				"category": "Cline"
+				"category": "Rich Cline"
 			}
 		],
 		"menus": {
 			"view/title": [
 				{
-					"command": "cline.plusButtonClicked",
+					"command": "rich-cline.plusButtonClicked",
 					"group": "navigation@1",
-					"when": "view == claude-dev.SidebarProvider"
+					"when": "view == rich-cline.SidebarProvider"
 				},
 				{
-					"command": "cline.mcpButtonClicked",
+					"command": "rich-cline.mcpButtonClicked",
 					"group": "navigation@2",
-					"when": "view == claude-dev.SidebarProvider"
+					"when": "view == rich-cline.SidebarProvider"
 				},
 				{
-					"command": "cline.historyButtonClicked",
+					"command": "rich-cline.historyButtonClicked",
 					"group": "navigation@3",
-					"when": "view == claude-dev.SidebarProvider"
+					"when": "view == rich-cline.SidebarProvider"
 				},
 				{
-					"command": "cline.popoutButtonClicked",
+					"command": "rich-cline.popoutButtonClicked",
 					"group": "navigation@4",
-					"when": "view == claude-dev.SidebarProvider"
+					"when": "view == rich-cline.SidebarProvider"
 				},
 				{
-					"command": "cline.settingsButtonClicked",
+					"command": "rich-cline.settingsButtonClicked",
 					"group": "navigation@5",
-					"when": "view == claude-dev.SidebarProvider"
+					"when": "view == rich-cline.SidebarProvider"
 				}
 			]
 		},
 		"configuration": {
-			"title": "Cline",
+			"title": "Rich Cline",
 			"properties": {
-				"cline.vsCodeLmModelSelector": {
+				"rich-cline.vsCodeLmModelSelector": {
 					"type": "object",
 					"properties": {
 						"vendor": {
@@ -142,7 +142,7 @@
 					},
 					"description": "Settings for VSCode Language Model API"
 				},
-				"cline.mcp.mode": {
+				"rich-cline.mcp.mode": {
 					"type": "string",
 					"enum": [
 						"full",
@@ -157,17 +157,17 @@
 					"default": "full",
 					"description": "Controls MCP inclusion in prompts, reduces token usage if you only need access to certain functionality."
 				},
-				"cline.enableCheckpoints": {
+				"rich-cline.enableCheckpoints": {
 					"type": "boolean",
 					"default": true,
 					"description": "Enables extension to save checkpoints of workspace throughout the task."
 				},
-				"cline.disableBrowserTool": {
+				"rich-cline.disableBrowserTool": {
 					"type": "boolean",
 					"default": false,
 					"description": "Disables extension from spawning browser session."
 				},
-				"cline.modelSettings.o3Mini.reasoningEffort": {
+				"rich-cline.modelSettings.o3Mini.reasoningEffort": {
 					"type": "string",
 					"enum": [
 						"low",
@@ -177,12 +177,12 @@
 					"default": "medium",
 					"description": "Controls the reasoning effort when using the o3-mini model. Higher values may result in more thorough but slower responses."
 				},
-				"cline.chromeExecutablePath": {
+				"rich-cline.chromeExecutablePath": {
 					"type": "string",
 					"default": null,
 					"description": "Path to Chrome executable for browser use functionality. If not set, the extension will attempt to find or download it automatically."
 				},
-				"cline.mcpMarketplace.enabled": {
+				"rich-cline.mcpMarketplace.enabled": {
 					"type": "boolean",
 					"default": true,
 					"description": "Controls whether the MCP Marketplace is enabled."
@@ -238,7 +238,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/bedrock-sdk": "^0.10.2",
-		"@anthropic-ai/sdk": "^0.26.0",
+		"@anthropic-ai/sdk": "^0.37.0",
 		"@anthropic-ai/vertex-sdk": "^0.4.1",
 		"@google/generative-ai": "^0.18.0",
 		"@mistralai/mistralai": "^1.5.0",

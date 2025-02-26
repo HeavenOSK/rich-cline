@@ -99,23 +99,9 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 		}
 	}, [task.text, windowWidth])
 
-	const isCostAvailable = useMemo(() => {
-		const openAiCompatHasPricing =
-			apiConfiguration?.apiProvider === "openai" &&
-			apiConfiguration?.openAiModelInfo?.inputPrice &&
-			apiConfiguration?.openAiModelInfo?.outputPrice
-		if (openAiCompatHasPricing) {
-			return true
-		}
-		return (
-			apiConfiguration?.apiProvider !== "vscode-lm" &&
-			apiConfiguration?.apiProvider !== "ollama" &&
-			apiConfiguration?.apiProvider !== "lmstudio" &&
-			apiConfiguration?.apiProvider !== "gemini"
-		)
-	}, [apiConfiguration?.apiProvider, apiConfiguration?.openAiModelInfo])
-
-	const shouldShowPromptCacheInfo = doesModelSupportPromptCache && apiConfiguration?.apiProvider !== "openrouter"
+	// Anthropic専用の実装
+	const isCostAvailable = true
+	const shouldShowPromptCacheInfo = doesModelSupportPromptCache
 
 	const ContextWindowComponent = (
 		<>

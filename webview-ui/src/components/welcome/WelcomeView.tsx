@@ -17,7 +17,15 @@ const WelcomeView = () => {
 	const disableLetsGoButton = apiErrorMessage != null
 
 	const handleSubmit = () => {
-		vscode.postMessage({ type: "apiConfiguration", apiConfiguration })
+		const configToSend = {
+			...apiConfiguration,
+			apiModelId: "claude-3-7-sonnet-20250219",
+		}
+		console.log("WelcomeView handleSubmit - Sending apiConfiguration:", configToSend)
+		vscode.postMessage({
+			type: "apiConfiguration",
+			apiConfiguration: configToSend,
+		})
 	}
 
 	const handleSubscribe = () => {
@@ -27,15 +35,20 @@ const WelcomeView = () => {
 	}
 
 	useEffect(() => {
-		setApiErrorMessage(validateApiConfiguration(apiConfiguration))
+		const errorMsg = validateApiConfiguration(apiConfiguration)
+		console.log("WelcomeView useEffect - apiConfiguration:", apiConfiguration, "errorMsg:", errorMsg)
+		setApiErrorMessage(errorMsg)
 	}, [apiConfiguration])
 
 	// Add message handler for subscription confirmation
 	const handleMessage = useCallback((e: MessageEvent) => {
 		const message: ExtensionMessage = e.data
+		console.log("WelcomeView handleMessage - Received message:", message)
 		if (message.type === "emailSubscribed") {
 			setIsSubscribed(true)
 			setEmail("")
+		} else if (message.type === "state") {
+			console.log("WelcomeView handleMessage - Received state update:", message.state)
 		}
 	}, [])
 

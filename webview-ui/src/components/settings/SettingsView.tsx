@@ -1,10 +1,18 @@
-import { VSCodeButton, VSCodeCheckbox, VSCodeLink, VSCodeTextArea } from "@vscode/webview-ui-toolkit/react"
+import {
+	VSCodeButton,
+	VSCodeCheckbox,
+	VSCodeDropdown,
+	VSCodeLink,
+	VSCodeOption,
+	VSCodeTextArea,
+	VSCodeTextField,
+} from "@vscode/webview-ui-toolkit/react"
 import { memo, useEffect, useState } from "react"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { validateApiConfiguration, validateModelId } from "../../utils/validate"
 import { vscode } from "../../utils/vscode"
 import SettingsButton from "../common/SettingsButton"
-import ApiOptions from "./ApiOptions"
+import { anthropicDefaultModelId, anthropicModels } from "../../../../src/shared/api"
 const { IS_DEV } = process.env
 
 type SettingsViewProps = {
@@ -14,10 +22,10 @@ type SettingsViewProps = {
 const SettingsView = ({ onDone }: SettingsViewProps) => {
 	const {
 		apiConfiguration,
+		setApiConfiguration,
 		version,
 		customInstructions,
 		setCustomInstructions,
-		openRouterModels,
 		telemetrySetting,
 		setTelemetrySetting,
 	} = useExtensionState()
@@ -26,7 +34,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 
 	const handleSubmit = () => {
 		const apiValidationResult = validateApiConfiguration(apiConfiguration)
-		const modelIdValidationResult = validateModelId(apiConfiguration, openRouterModels)
+		const modelIdValidationResult = validateModelId(apiConfiguration)
 
 		setApiErrorMessage(apiValidationResult)
 		setModelIdErrorMessage(modelIdValidationResult)
@@ -99,11 +107,132 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 					flexDirection: "column",
 				}}>
 				<div style={{ marginBottom: 5 }}>
-					<ApiOptions
-						showModelOptions={true}
-						apiErrorMessage={apiErrorMessage}
-						modelIdErrorMessage={modelIdErrorMessage}
-					/>
+					{/* Anthropic設定を直接実装 */}
+					<div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+						<div>
+							<label htmlFor="api-provider">
+								<span style={{ fontWeight: 500 }}>API Provider</span>
+							</label>
+							<div style={{ marginTop: 5 }}>Anthropic</div>
+						</div>
+
+						<div>
+							<VSCodeTextField
+								value={apiConfiguration?.apiKey || ""}
+								style={{ width: "100%" }}
+								type="password"
+								onInput={(e: any) =>
+									setApiConfiguration({
+										...apiConfiguration,
+										apiKey: e.target.value,
+									})
+								}
+								placeholder="Enter API Key...">
+								<span style={{ fontWeight: 500 }}>Anthropic API Key</span>
+							</VSCodeTextField>
+
+							<VSCodeCheckbox
+								checked={!!apiConfiguration?.anthropicBaseUrl}
+								onChange={(e: any) => {
+									const isChecked = e.target.checked === true
+									if (!isChecked) {
+										setApiConfiguration({
+											...apiConfiguration,
+											anthropicBaseUrl: "",
+										})
+									}
+								}}>
+								Use custom base URL
+							</VSCodeCheckbox>
+
+							{!!apiConfiguration?.anthropicBaseUrl && (
+								<VSCodeTextField
+									value={apiConfiguration?.anthropicBaseUrl || ""}
+									style={{ width: "100%", marginTop: 3 }}
+									type="url"
+									onInput={(e: any) =>
+										setApiConfiguration({
+											...apiConfiguration,
+											anthropicBaseUrl: e.target.value,
+										})
+									}
+									placeholder="Default: https://api.anthropic.com"
+								/>
+							)}
+
+							<p
+								style={{
+									fontSize: "12px",
+									marginTop: 3,
+									color: "var(--vscode-descriptionForeground)",
+								}}>
+								This key is stored locally and only used to make API requests from this extension.
+								{!apiConfiguration?.apiKey && (
+									<VSCodeLink
+										href="https://console.anthropic.com/settings/keys"
+										style={{
+											display: "inline",
+											fontSize: "inherit",
+										}}>
+										You can get an Anthropic API key by signing up here.
+									</VSCodeLink>
+								)}
+							</p>
+						</div>
+
+						{/* モデル選択ドロップダウン */}
+						<div>
+							<label htmlFor="model-id">
+								<span style={{ fontWeight: 500 }}>Model</span>
+							</label>
+							<VSCodeDropdown
+								id="model-id"
+								value={apiConfiguration?.apiModelId || anthropicDefaultModelId}
+								onChange={(e: any) =>
+									setApiConfiguration({
+										...apiConfiguration,
+										apiModelId: e.target.value,
+									})
+								}
+								style={{ width: "100%" }}>
+								<VSCodeOption value="">Select a model...</VSCodeOption>
+								{Object.keys(anthropicModels).map((modelId) => (
+									<VSCodeOption
+										key={modelId}
+										value={modelId}
+										style={{
+											whiteSpace: "normal",
+											wordWrap: "break-word",
+											maxWidth: "100%",
+										}}>
+										{modelId}
+									</VSCodeOption>
+								))}
+							</VSCodeDropdown>
+						</div>
+
+						{apiErrorMessage && (
+							<p
+								style={{
+									margin: "-10px 0 4px 0",
+									fontSize: 12,
+									color: "var(--vscode-errorForeground)",
+								}}>
+								{apiErrorMessage}
+							</p>
+						)}
+
+						{modelIdErrorMessage && (
+							<p
+								style={{
+									margin: "-10px 0 4px 0",
+									fontSize: 12,
+									color: "var(--vscode-errorForeground)",
+								}}>
+								{modelIdErrorMessage}
+							</p>
+						)}
+					</div>
 				</div>
 
 				<div style={{ marginBottom: 5 }}>

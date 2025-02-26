@@ -6,7 +6,7 @@ import * as vscode from "vscode"
 
 const packagePath = path.join(__dirname, "..", "..", "package.json")
 
-describe("Cline Extension", () => {
+describe("Rich Cline Extension", () => {
 	after(() => {
 		vscode.window.showInformationMessage("All tests done!")
 	})
@@ -21,7 +21,7 @@ describe("Cline Extension", () => {
 
 	it("should successfully execute the plus button command", async () => {
 		await new Promise((resolve) => setTimeout(resolve, 400))
-		await vscode.commands.executeCommand("cline.plusButtonClicked")
+		await vscode.commands.executeCommand("rich-cline.plusButtonClicked")
 	})
 
 	// New test to verify xvfb and webview functionality

@@ -22,7 +22,17 @@ export async function downloadTask(dateTs: number, conversationHistory: Anthropi
 		.map((message) => {
 			const role = message.role === "user" ? "**User:**" : "**Assistant:**"
 			const content = Array.isArray(message.content)
-				? message.content.map((block) => formatContentBlockToMarkdown(block)).join("\n")
+				? message.content
+						.map((block) =>
+							formatContentBlockToMarkdown(
+								block as
+									| Anthropic.TextBlockParam
+									| Anthropic.ImageBlockParam
+									| Anthropic.ToolUseBlockParam
+									| Anthropic.ToolResultBlockParam,
+							),
+						)
+						.join("\n")
 				: message.content
 			return `${role}\n\n${content}\n\n`
 		})
@@ -36,7 +46,7 @@ export async function downloadTask(dateTs: number, conversationHistory: Anthropi
 
 	if (saveUri) {
 		// Write content to the selected location
-		await vscode.workspace.fs.writeFile(saveUri, Buffer.from(markdownContent))
+		await vscode.workspace.fs.writeFile(saveUri, Buffer.from(markdownContent) as unknown as Uint8Array)
 		vscode.window.showTextDocument(saveUri, { preview: true })
 	}
 }
