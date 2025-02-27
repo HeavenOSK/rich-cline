@@ -3123,7 +3123,7 @@ export class Cline {
 			const stream = this.attemptApiRequest(previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
 			let assistantMessage = ""
 			let thinkingMessage = ""
-			const getThinkingMessage = () => `<thinking>${thinkingMessage}</thinking>\n`
+			let signature = ""
 			this.isStreaming = true
 			try {
 				for await (const chunk of stream) {
@@ -3149,6 +3149,10 @@ export class Cline {
 							}
 							// present content to user
 							this.presentAssistantMessage()
+							break
+						}
+						case "signature": {
+							signature = chunk.signature
 							break
 						}
 						case "text": {
@@ -3236,7 +3240,10 @@ export class Cline {
 			if (assistantMessage.length > 0) {
 				await this.addToApiConversationHistory({
 					role: "assistant",
-					content: [{ type: "text", text: assistantMessage }],
+					content: [
+						{ type: "thinking", thinking: thinkingMessage, signature },
+						{ type: "text", text: assistantMessage },
+					],
 				})
 
 				// NOTE: this comment is here for future reference - this was a workaround for userMessageContent not getting set to true. It was due to it not recursively calling for partial blocks when didRejectTool, so it would get stuck waiting for a partial block to complete before it could continue.

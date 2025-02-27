@@ -182,6 +182,12 @@ export class AnthropicHandler implements ApiHandler {
 								thinking: chunk.delta.thinking,
 							}
 							break
+						case "signature_delta":
+							yield {
+								type: "signature",
+								signature: chunk.delta.signature,
+							}
+							break
 					}
 					break
 				case "content_block_stop":

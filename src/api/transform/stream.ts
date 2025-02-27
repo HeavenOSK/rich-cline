@@ -1,5 +1,5 @@
 export type ApiStream = AsyncGenerator<ApiStreamChunk>
-export type ApiStreamChunk = ApiStreamTextChunk | ApiStreamUsageChunk | ApiStreamThinkingChunk
+export type ApiStreamChunk = ApiStreamTextChunk | ApiStreamUsageChunk | ApiStreamThinkingChunk | ApiStreamSignatureChunk
 
 export interface ApiStreamTextChunk {
 	type: "text"
@@ -9,6 +9,11 @@ export interface ApiStreamTextChunk {
 export interface ApiStreamThinkingChunk {
 	type: "thinking"
 	thinking: string
+}
+
+export interface ApiStreamSignatureChunk {
+	type: "signature"
+	signature: string
 }
 
 export interface ApiStreamUsageChunk {
