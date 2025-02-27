@@ -82,7 +82,7 @@ export class AnthropicHandler implements ApiHandler {
 			}
 
 			// ベータヘッダーを使用してメッセージを作成
-			stream = await this.client.messages.create(
+			stream = await this.client.beta.messages.create(
 				{
 					model: modelId,
 					max_tokens: model.info.maxTokens || 8192,
@@ -104,7 +104,7 @@ export class AnthropicHandler implements ApiHandler {
 			)
 		} else {
 			// 通常のメッセージ作成
-			stream = await this.client.messages.create({
+			stream = await this.client.beta.messages.create({
 				model: modelId,
 				max_tokens: model.info.maxTokens || 8192,
 				temperature: 1,
