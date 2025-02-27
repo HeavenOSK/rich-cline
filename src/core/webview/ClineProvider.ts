@@ -58,7 +58,6 @@ type GlobalStateKey =
 export const GlobalFileNames = {
 	apiConversationHistory: "api_conversation_history.json",
 	uiMessages: "ui_messages.json",
-	openRouterModels: "openrouter_models.json",
 	mcpSettings: "cline_mcp_settings.json",
 	clineRules: ".clinerules",
 }
@@ -378,10 +377,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 								text: JSON.stringify(theme),
 							}),
 						)
-						// gui relies on model info to be up-to-date to provide the most accurate pricing, so we need to fetch the latest details on launch.
-						// we do this for all users since many users switch between api providers and if they were to switch back to openrouter it would be showing outdated model info if we hadn't retrieved the latest at this point
-						// (see normalizeApiConfiguration > openrouter)
-						// Prefetch marketplace and OpenRouter models
+						// Anthropic専用化: モデル情報のプリフェッチを簡素化
+						// マーケットプレイスのみをプリフェッチ
 
 						this.getGlobalState("mcpMarketplaceCatalog").then((mcpMarketplaceCatalog) => {
 							if (mcpMarketplaceCatalog) {
@@ -1044,15 +1041,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 		return cacheDir
 	}
 
-	async readOpenRouterModels(): Promise<Record<string, ModelInfo> | undefined> {
-		const openRouterModelsFilePath = path.join(await this.ensureCacheDirectoryExists(), GlobalFileNames.openRouterModels)
-		const fileExists = await fileExistsAtPath(openRouterModelsFilePath)
-		if (fileExists) {
-			const fileContents = await fs.readFile(openRouterModelsFilePath, "utf8")
-			return JSON.parse(fileContents)
-		}
-		return undefined
-	}
+	// Anthropic専用化のため、OpenRouterModels関連のメソッドを削除
 
 	// Task history
 	async getTaskWithId(id: string): Promise<{

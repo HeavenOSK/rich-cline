@@ -25,8 +25,6 @@ export interface WebviewMessage {
 		| "openFile"
 		| "openMention"
 		| "cancelTask"
-		| "refreshOpenRouterModels"
-		| "refreshOpenAiModels"
 		| "openMcpSettings"
 		| "restartMcpServer"
 		| "deleteMcpServer"

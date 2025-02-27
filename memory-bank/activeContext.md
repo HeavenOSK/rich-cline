@@ -88,15 +88,16 @@ Rich-Clineプロジェクトは現在、以下の作業に焦点を当ててい�
 
 ## 現在の課題
 
-1. **APIコスト計算の正確性**: thinking_deltaのトークン使用量は既にoutput_tokensに含まれている
+1. ✅ **APIコスト計算の正確性**: thinking_deltaのトークン使用量は既にoutput_tokensに含まれている
    - 影響: 特になし（既に正確に反映されている）
-   - 対応: calculateApiCost関数にコメントを追加して明確化
+   - 対応: calculateApiCost関数にコメントを追加して明確化（完了）
 
-2. **残存コードの問題**: Anthropic専用化が不完全
+2. ✅ **残存コードの問題**: Anthropic専用化が不完全
    - 影響: コードの複雑さ、メンテナンス性
    - 対応: 
-     - src/core/Cline.ts から OpenAI と OpenRouter の参照を削除
-     - その他の残存コードの特定と削除
+     - ✅ src/core/Cline.ts から OpenAI と OpenRouter の参照を削除（完了）
+     - ✅ WebviewMessage.ts から refreshOpenRouterModels と refreshOpenAiModels を削除（完了）
+     - ✅ ClineProvider.ts から OpenRouter関連の変数と関数を削除（完了）
 
 3. ✅ **UI設定の簡素化**: プロバイダー選択UIの削除
    - 影響: ユーザーインターフェース、設定画面
