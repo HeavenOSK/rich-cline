@@ -3,6 +3,15 @@
 ## プロジェクト概要
 Rich-ClineはClineをフォークしたプロジェクトで、Anthropicに特化し、特にClaude 3.7 SonnetのExtended Thinking機能を最大限に活用することを目指しています。
 
+
+ 
+## 作業終わりに
+後々作業を振り返られるようにこまめに commit してほしい。
+下記の順序で行う。
+1. npm run check-types を実行
+2. memory-bank へ作業内容を反映
+3. git add . & git commit を行うこと。
+ 
 ## コーディングパターン
 
 ### 1. Anthropic専用化
