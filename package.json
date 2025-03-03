@@ -209,6 +209,7 @@
 		"start:webview": "cd webview-ui && npm run start",
 		"build:webview": "cd webview-ui && npm run build",
 		"test:webview": "cd webview-ui && npm run test",
+		"create:vsix": "vsce package",
 		"publish:marketplace": "vsce publish && ovsx publish",
 		"publish:marketplace:prerelease": "vsce publish --pre-release && ovsx publish --pre-release",
 		"prepare": "husky",

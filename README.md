@@ -161,6 +161,34 @@ To contribute to the project, start with our [Contributing Guide](CONTRIBUTING.m
 </details>
 
 <details>
+<summary>Creating a VSIX Package</summary>
+
+To create a VSIX package for manual installation or distribution:
+
+1. Make sure you have the `vsce` CLI tool installed:
+    ```bash
+    npm install -g @vscode/vsce
+    ```
+
+2. Create the VSIX package by running:
+    ```bash
+    npm run create:vsix
+    ```
+
+3. The VSIX file will be generated in the root directory with a name like `rich-cline-3.4.9.vsix` (version number may vary).
+
+4. Install the extension manually in VS Code:
+   - Open VS Code
+   - Go to the Extensions view (Ctrl+Shift+X)
+   - Click on the "..." menu (top right of Extensions view)
+   - Select "Install from VSIX..."
+   - Navigate to and select your VSIX file
+
+This is useful for testing production builds or distributing the extension in environments without direct access to the VS Code Marketplace.
+
+</details>
+
+<details>
 <summary>Creating a Pull Request</summary>
 
 1. Before creating a PR, generate a changeset entry:
